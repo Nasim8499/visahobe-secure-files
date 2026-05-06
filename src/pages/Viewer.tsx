@@ -62,10 +62,23 @@ export default function Viewer() {
   const download = () => {
     if (f.blobUrl) {
       const a = document.createElement("a"); a.href = f.blobUrl; a.download = f.name; a.click();
-    } else { toast("Demo file — download simulated"); }
+      toast.success(`Downloading ${f.name}`);
+    } else {
+      const content = `VisaHOBe PTE. LTD. — Secure Company Preview\n\nFile: ${f.name}\nFile ID: ${f.id.toUpperCase()}\nClient: ${c?.name || "—"}\nReference: ${c?.reference || "—"}\nCategory: ${f.category}\nStatus: ${f.status}\nUploaded: ${f.uploadedAt}\nSize: ${f.size}\nVisibility: ${f.visibility}\n\nThis is a demo placeholder document for internal preview only.\nGenerated ${new Date().toISOString()}\nvisahobe.com · confidential`;
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = f.name.replace(/\.[^.]+$/, "") + "-preview.txt"; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success("Demo placeholder downloaded");
+    }
   };
-  const share = () => { navigator.clipboard.writeText(`https://vault.visahobe.com/share/${f.id}`); toast.success("Secure link copied"); };
-  const print = () => window.print();
+  const share = async () => {
+    const link = `https://vault.visahobe.com/share/${f.id}`;
+    try { await navigator.clipboard.writeText(link); toast.success("Secure link copied", { description: link }); }
+    catch { toast.error("Could not copy link"); }
+  };
+  const print = () => { toast("Opening print dialog…"); setTimeout(() => window.print(), 150); };
 
   return (
     <div className="fixed inset-0 z-50 bg-viewer text-viewer-foreground flex flex-col animate-fade-in">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Upload, FileText, Image as ImageIcon, FileType2, Plus } from "lucide-react";
+import { Search, Upload, FileText, Image as ImageIcon, FileType2, Plus, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -48,6 +48,23 @@ export default function FileVault() {
 
   const iconFor = (mime?: string) => mime?.startsWith("image/") ? ImageIcon : mime === "application/pdf" ? FileType2 : FileText;
 
+  const downloadFile = (e: React.MouseEvent, f: typeof files[number]) => {
+    e.preventDefault(); e.stopPropagation();
+    if (f.blobUrl) {
+      const a = document.createElement("a"); a.href = f.blobUrl; a.download = f.name; a.click();
+      toast.success(`Downloading ${f.name}`);
+    } else {
+      const c = clients.find((c) => c.id === f.clientId);
+      const content = `VisaHOBe PTE. LTD. — Secure Company Preview\n\nFile: ${f.name}\nFile ID: ${f.id.toUpperCase()}\nClient: ${c?.name || "—"}\nReference: ${c?.reference || "—"}\nCategory: ${f.category}\nStatus: ${f.status}\nUploaded: ${f.uploadedAt}\nSize: ${f.size}\n\nDemo placeholder · visahobe.com · confidential`;
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = f.name.replace(/\.[^.]+$/, "") + "-preview.txt"; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success("Demo placeholder downloaded");
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
@@ -83,7 +100,10 @@ export default function FileVault() {
                   <div className="text-xs text-muted-foreground truncate">{c?.name} · {f.category}</div>
                   <div className="text-xs text-muted-foreground mt-1">{f.size} · {f.uploadedAt}</div>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${f.status === "Approved" ? "bg-success/10 text-success" : f.status === "Pending" ? "bg-warning/10 text-warning" : "bg-secondary text-foreground"}`}>{f.status}</span>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${f.status === "Approved" ? "bg-success/10 text-success" : f.status === "Pending" ? "bg-warning/10 text-warning" : "bg-secondary text-foreground"}`}>{f.status}</span>
+                  <button onClick={(e) => downloadFile(e, f)} aria-label="Download" className="h-8 w-8 rounded-lg bg-secondary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition"><Download className="h-3.5 w-3.5" /></button>
+                </div>
               </div>
             </Link>
           );
