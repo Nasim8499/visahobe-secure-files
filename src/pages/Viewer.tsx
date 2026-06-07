@@ -92,9 +92,9 @@ export default function Viewer() {
                 <button
                   key={p}
                   onClick={() => goTo(p)}
-                  className={`group relative rounded-lg overflow-hidden border-2 transition ${active ? "border-[hsl(var(--primary-glow))] shadow-glow" : "border-white/10 hover:border-white/40"}`}
+                  className={`group relative rounded-lg overflow-hidden border-2 transition aspect-[1/1.414] ${active ? "border-[hsl(var(--primary-glow))] shadow-glow" : "border-white/10 hover:border-white/40"}`}
                 >
-                  <div className="bg-white aspect-[1/1.414] origin-top-left" style={{ transform: "scale(0.105)", width: "calc(100% / 0.105)", height: "calc(100% / 0.105)" }}>
+                  <div className="absolute top-0 left-0 origin-top-left" style={{ width: "794px", transform: "scale(0.11)" }}>
                     <DemoPage name={f.name} status={f.status} category={f.category} client={c} fileId={f.id} page={i} />
                   </div>
                   <div className={`absolute bottom-0 inset-x-0 text-center text-[10px] py-0.5 ${active ? "bg-[hsl(var(--primary))] text-white" : "bg-black/60 text-white/80"}`}>{p}</div>
@@ -103,6 +103,7 @@ export default function Viewer() {
             })}
           </aside>
         )}
+
 
         {/* Preview */}
         <div className="flex-1 flex flex-col overflow-hidden">
