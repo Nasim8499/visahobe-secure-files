@@ -1,9 +1,9 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useApp } from "@/lib/store";
 import { useState } from "react";
-import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, Download, Share2, Printer, ShieldCheck, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, Download, Share2, Printer, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import DemoDocument from "@/components/DemoDocument";
 
 function DemoPreview({ name, status }: { name: string; status: string }) {
   return (
