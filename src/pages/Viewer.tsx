@@ -68,18 +68,19 @@ export default function Viewer() {
       <div className="flex-1 flex overflow-hidden">
         {/* Preview */}
         <div className="flex-1 overflow-auto p-4 lg:p-8 flex items-start justify-center">
-          <div style={{ transform: `scale(${zoom}) rotate(${rot}deg)`, transformOrigin: "top center", transition: "transform 0.2s" }} className="w-full max-w-2xl">
+          <div style={{ transform: `scale(${zoom}) rotate(${rot}deg)`, transformOrigin: "top center", transition: "transform 0.2s" }} className="w-full max-w-[820px]">
             {isImage && f.blobUrl ? (
               <img src={f.blobUrl} alt={f.name} className="w-full rounded-2xl shadow-elevated" />
             ) : isPdf && f.blobUrl ? (
-              <object data={f.blobUrl} type="application/pdf" className="w-full aspect-[3/4] rounded-2xl bg-white">
+              <object data={f.blobUrl} type="application/pdf" className="w-full aspect-[1/1.414] rounded-2xl bg-white">
                 <div className="p-8 text-center text-black">Preview unavailable. <button onClick={download} className="underline">Download</button></div>
               </object>
             ) : (
-              <DemoPreview name={f.name} status={f.status} />
+              <DemoDocument name={f.name} status={f.status} category={f.category} client={c} fileId={f.id} />
             )}
           </div>
         </div>
+
 
         {/* Side details */}
         <aside className="hidden lg:block w-80 border-l border-white/10 p-6 overflow-auto no-print">
