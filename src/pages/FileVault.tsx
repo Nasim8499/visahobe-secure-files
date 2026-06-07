@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Upload, FileText, Image as ImageIcon, FileType2, Plus, Download } from "lucide-react";
+import { Search, Upload, FileText, Image as ImageIcon, FileType2, Download, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FileCategory } from "@/lib/types";
+import { pageCountFor, recordIdFor } from "@/components/DemoDocument";
 
 const cats: ("All" | FileCategory)[] = ["All", "Identity", "Travel", "Agreement", "Medical", "Company Letter", "Other"];
 
