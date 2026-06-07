@@ -116,7 +116,18 @@ export default function Viewer() {
                   <div className="p-8 text-center text-black">Preview unavailable. <button onClick={download} className="underline">Download</button></div>
                 </object>
               ) : isDemo ? (
-                <DemoPage name={f.name} status={f.status} category={f.category} client={c} fileId={f.id} page={page - 1} />
+                <>
+                  <div className="screen-only">
+                    <DemoPage name={f.name} status={f.status} category={f.category} client={c} fileId={f.id} page={page - 1} />
+                  </div>
+                  <div className="print-only space-y-0">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <div key={i} className="print-page">
+                        <DemoPage name={f.name} status={f.status} category={f.category} client={c} fileId={f.id} page={i} />
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : null}
             </div>
           </div>
