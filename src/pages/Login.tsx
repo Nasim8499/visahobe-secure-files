@@ -25,7 +25,9 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-background">
       {/* Hero */}
-      <div className="relative lg:w-1/2 gradient-hero text-primary-foreground p-8 lg:p-14 overflow-hidden">
+      <div className="relative lg:w-1/2 text-primary-foreground p-8 lg:p-14 overflow-hidden min-h-[40vh] lg:min-h-screen">
+        <img src={heroImg} alt="VisaHOBe consultancy workspace" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#001a3d]/90 via-[#003B73]/80 to-[#E63946]/60" />
         <div className="absolute -top-24 -right-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute bottom-0 -left-20 h-72 w-72 rounded-full bg-[hsl(var(--accent))]/30 blur-3xl" />
         <div className="relative z-10 flex flex-col h-full">
