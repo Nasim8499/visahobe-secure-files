@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, Lock, ArrowRight, Globe, ShieldCheck, Plane } from "lucide-react";
 import { toast } from "sonner";
+import heroImg from "@/assets/login-hero.jpg";
 
 export default function Login() {
   const navigate = useNavigate();
