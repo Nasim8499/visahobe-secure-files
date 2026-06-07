@@ -2,6 +2,7 @@ import { useApp } from "@/lib/store";
 import { Link } from "react-router-dom";
 import { Users, FolderLock, Clock, CheckCircle2, TrendingUp, ShieldCheck, ArrowRight, FileText, UserPlus, Eye, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import bannerImg from "@/assets/dashboard-banner.jpg";
 
 const KPI = ({ icon: Icon, label, value, trend, gradient }: any) => (
   <div className="card-elevated p-5 relative overflow-hidden group">
