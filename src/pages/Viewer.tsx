@@ -1,50 +1,10 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useApp } from "@/lib/store";
 import { useState } from "react";
-import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, Download, Share2, Printer, ShieldCheck, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, Download, Share2, Printer, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import DemoDocument from "@/components/DemoDocument";
 
-function DemoPreview({ name, status }: { name: string; status: string }) {
-  return (
-    <div className="bg-white text-[#07111F] rounded-2xl shadow-elevated w-full max-w-2xl mx-auto p-8 relative overflow-hidden aspect-[3/4]">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] text-6xl font-bold rotate-[-25deg] tracking-widest">
-        VisaHOBe PTE. LTD.
-      </div>
-      <div className="relative">
-        <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg gradient-primary text-white flex items-center justify-center font-bold text-sm">VH</div>
-            <div>
-              <div className="font-semibold text-sm">VisaHOBe PTE. LTD.</div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Secure Company Preview</div>
-            </div>
-          </div>
-          <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 font-medium">{status}</span>
-        </div>
-        <h2 className="font-semibold mt-6 text-lg">{name}</h2>
-        <div className="text-xs text-gray-500 mt-1">Internal company record · For authorised personnel only</div>
-        <div className="mt-6 space-y-2.5">
-          {[100, 95, 88, 92, 80, 70, 85].map((w, i) => (
-            <div key={i} className="h-2.5 rounded-full bg-gray-100" style={{ width: `${w}%` }} />
-          ))}
-        </div>
-        <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            {[90, 75, 60].map((w, i) => <div key={i} className="h-2 rounded-full bg-gray-100" style={{ width: `${w}%` }} />)}
-          </div>
-          <div className="rounded-lg border border-gray-200 p-3 grid grid-cols-5 gap-1">
-            {Array.from({ length: 25 }).map((_, i) => <div key={i} className={`aspect-square rounded-[2px] ${Math.random() > 0.5 ? "bg-[#07111F]" : "bg-transparent"}`} />)}
-          </div>
-        </div>
-        <div className="absolute bottom-0 inset-x-0 flex items-center justify-between text-[10px] text-gray-400 border-t border-gray-200 pt-3 mt-8">
-          <span>VH-DOC-{Math.floor(Math.random() * 9000 + 1000)}</span>
-          <span>visahobe.com · confidential</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Viewer() {
   const { id = "" } = useParams();
@@ -108,18 +68,19 @@ export default function Viewer() {
       <div className="flex-1 flex overflow-hidden">
         {/* Preview */}
         <div className="flex-1 overflow-auto p-4 lg:p-8 flex items-start justify-center">
-          <div style={{ transform: `scale(${zoom}) rotate(${rot}deg)`, transformOrigin: "top center", transition: "transform 0.2s" }} className="w-full max-w-2xl">
+          <div style={{ transform: `scale(${zoom}) rotate(${rot}deg)`, transformOrigin: "top center", transition: "transform 0.2s" }} className="w-full max-w-[820px]">
             {isImage && f.blobUrl ? (
               <img src={f.blobUrl} alt={f.name} className="w-full rounded-2xl shadow-elevated" />
             ) : isPdf && f.blobUrl ? (
-              <object data={f.blobUrl} type="application/pdf" className="w-full aspect-[3/4] rounded-2xl bg-white">
+              <object data={f.blobUrl} type="application/pdf" className="w-full aspect-[1/1.414] rounded-2xl bg-white">
                 <div className="p-8 text-center text-black">Preview unavailable. <button onClick={download} className="underline">Download</button></div>
               </object>
             ) : (
-              <DemoPreview name={f.name} status={f.status} />
+              <DemoDocument name={f.name} status={f.status} category={f.category} client={c} fileId={f.id} />
             )}
           </div>
         </div>
+
 
         {/* Side details */}
         <aside className="hidden lg:block w-80 border-l border-white/10 p-6 overflow-auto no-print">
