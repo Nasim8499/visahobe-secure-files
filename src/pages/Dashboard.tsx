@@ -2,6 +2,7 @@ import { useApp } from "@/lib/store";
 import { Link } from "react-router-dom";
 import { Users, FolderLock, Clock, CheckCircle2, TrendingUp, ShieldCheck, ArrowRight, FileText, UserPlus, Eye, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import bannerImg from "@/assets/dashboard-banner.jpg";
 
 const KPI = ({ icon: Icon, label, value, trend, gradient }: any) => (
   <div className="card-elevated p-5 relative overflow-hidden group">
@@ -34,9 +35,16 @@ export default function Dashboard() {
   const { activity, files, clients } = useApp();
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Welcome back, Admin</h1>
-        <p className="text-sm text-muted-foreground mt-1">Here is what is happening across your VisaHOBe workspace today.</p>
+      <div className="relative overflow-hidden rounded-3xl shadow-elevated">
+        <img src={bannerImg} alt="VisaHOBe global network" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#001a3d]/95 via-[#003B73]/85 to-[#003B73]/40" />
+        <div className="relative p-6 lg:p-8 text-primary-foreground">
+          <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider bg-white/15 backdrop-blur px-2.5 py-1 rounded-full mb-3">
+            <ShieldCheck className="h-3 w-3" /> Secure workspace
+          </div>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Welcome back, Admin</h1>
+          <p className="text-sm text-white/80 mt-1 max-w-lg">Here is what is happening across your VisaHOBe workspace today.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
