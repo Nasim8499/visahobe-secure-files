@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Upload, FileText, Image as ImageIcon, FileType2, Plus, Download } from "lucide-react";
+import { Search, Upload, FileText, Image as ImageIcon, FileType2, Download, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FileCategory } from "@/lib/types";
+import { pageCountFor, recordIdFor } from "@/components/DemoDocument";
 
 const cats: ("All" | FileCategory)[] = ["All", "Identity", "Travel", "Agreement", "Medical", "Company Letter", "Other"];
 
@@ -81,16 +82,25 @@ export default function FileVault() {
       </div>
 
       <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-1">
-        {cats.map((c) => (
-          <button key={c} onClick={() => setCat(c)} className={cn("px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition",
-            cat === c ? "gradient-primary text-primary-foreground shadow-glow" : "bg-card text-muted-foreground border border-border hover:text-foreground")}>{c}</button>
-        ))}
+        {cats.map((c) => {
+          const count = c === "All" ? files.length : files.filter((f) => f.category === c).length;
+          return (
+            <button key={c} onClick={() => setCat(c)} className={cn("px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition inline-flex items-center gap-2",
+              cat === c ? "gradient-primary text-primary-foreground shadow-glow" : "bg-card text-muted-foreground border border-border hover:text-foreground")}>
+              {c}
+              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-mono", cat === c ? "bg-white/20" : "bg-secondary text-foreground")}>{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((f) => {
           const c = clients.find((c) => c.id === f.clientId);
           const Icon = iconFor(f.mime);
+          const isDemo = !f.blobUrl;
+          const pages = isDemo ? pageCountFor(f.category) : 1;
+          const recId = recordIdFor(f.id);
           return (
             <Link key={f.id} to={`/viewer/${f.id}`} className="card-soft p-4 hover:shadow-card transition-all hover:-translate-y-0.5 block">
               <div className="flex items-start gap-3">
@@ -98,7 +108,11 @@ export default function FileVault() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm truncate">{f.name}</div>
                   <div className="text-xs text-muted-foreground truncate">{c?.name} · {f.category}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{f.size} · {f.uploadedAt}</div>
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-secondary text-foreground">{recId}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary inline-flex items-center gap-1"><Layers className="h-2.5 w-2.5" /> {pages} {pages === 1 ? "pg" : "pgs"}</span>
+                    <span className="text-[10px] text-muted-foreground">{f.size}</span>
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${f.status === "Approved" ? "bg-success/10 text-success" : f.status === "Pending" ? "bg-warning/10 text-warning" : "bg-secondary text-foreground"}`}>{f.status}</span>
@@ -110,6 +124,7 @@ export default function FileVault() {
         })}
         {filtered.length === 0 && <div className="col-span-full text-center py-16 text-muted-foreground text-sm">No files match.</div>}
       </div>
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-2xl">
