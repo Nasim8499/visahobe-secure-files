@@ -1,5 +1,8 @@
-import { createContext, useContext, useMemo, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useMemo, useState, ReactNode, useCallback, useEffect, useRef } from "react";
 import { Activity, Client, VaultFile, FileCategory } from "./types";
+import { generateDemoPdf } from "./generatePdf";
+import { recordIdFor } from "./recordId";
+import { pdfjs } from "./pdfWorker";
 
 const seedClients: Client[] = [
   { id: "c1", name: "Aarav Sharma", reference: "VH-2026-001248", country: "India", phone: "+91 98201 22345", email: "aarav@example.com", status: "Active", avatarColor: "from-[#003B73] to-[#177BBB]", notes: "Priority client. Renewal due Q3.", createdAt: "2026-04-12" },
@@ -13,7 +16,7 @@ const seedClients: Client[] = [
 const seedFiles: VaultFile[] = [
   { id: "f1", name: "Company Letter - Aarav.pdf", clientId: "c1", category: "Company Letter", size: "248 KB", uploadedAt: "2026-05-01", status: "Approved", visibility: "Private", isDemo: true, mime: "application/pdf" },
   { id: "f2", name: "Travel Itinerary.pdf", clientId: "c1", category: "Travel", size: "612 KB", uploadedAt: "2026-04-28", status: "Reviewed", visibility: "Private", isDemo: true, mime: "application/pdf" },
-  { id: "f3", name: "Identity Reference.png", clientId: "c2", category: "Identity", size: "1.2 MB", uploadedAt: "2026-04-22", status: "Approved", visibility: "Shared", isDemo: true, mime: "image/png" },
+  { id: "f3", name: "Identity Reference.pdf", clientId: "c2", category: "Identity", size: "1.2 MB", uploadedAt: "2026-04-22", status: "Approved", visibility: "Shared", isDemo: true, mime: "application/pdf" },
   { id: "f4", name: "Service Agreement.pdf", clientId: "c2", category: "Agreement", size: "344 KB", uploadedAt: "2026-04-19", status: "Pending", visibility: "Private", isDemo: true, mime: "application/pdf" },
   { id: "f5", name: "Medical Summary.pdf", clientId: "c3", category: "Medical", size: "188 KB", uploadedAt: "2026-04-12", status: "Pending", visibility: "Private", isDemo: true, mime: "application/pdf" },
   { id: "f6", name: "Onboarding Notes.pdf", clientId: "c5", category: "Other", size: "92 KB", uploadedAt: "2026-04-08", status: "Reviewed", visibility: "Private", isDemo: true, mime: "application/pdf" },
@@ -52,11 +55,36 @@ const palettes = [
   "from-[#F1573D] to-[#177BBB]",
 ];
 
+async function pdfPageCount(blob: Blob): Promise<number> {
+  try {
+    const buf = await blob.arrayBuffer();
+    const doc = await pdfjs.getDocument({ data: buf }).promise;
+    return doc.numPages;
+  } catch { return 1; }
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>(seedClients);
   const [files, setFiles] = useState<VaultFile[]>(seedFiles);
   const [activity, setActivity] = useState<Activity[]>(seedActivity);
   const [authed, setAuthed] = useState(false);
+  const generated = useRef(false);
+
+  // Generate real PDFs for all seeded demo files once.
+  useEffect(() => {
+    if (generated.current) return;
+    generated.current = true;
+    setFiles((prev) => prev.map((f) => {
+      if (f.blobUrl || !f.isDemo) return f;
+      const client = seedClients.find((c) => c.id === f.clientId);
+      const pc: any = client ? { name: client.name, reference: client.reference, country: client.country, email: client.email, phone: client.phone } : undefined;
+      const { url, pages } = generateDemoPdf({
+        category: f.category, name: f.name, refId: recordIdFor(f.id),
+        status: f.status, client: pc,
+      });
+      return { ...f, blobUrl: url, pages, mime: "application/pdf" };
+    }));
+  }, []);
 
   const login = useCallback(() => setAuthed(true), []);
   const logout = useCallback(() => setAuthed(false), []);
@@ -79,20 +107,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addFile: AppCtx["addFile"] = useCallback(({ file, clientId, category }) => {
     const blobUrl = URL.createObjectURL(file);
+    const id = `f${Date.now()}`;
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/");
     const newFile: VaultFile = {
-      id: `f${Date.now()}`,
-      name: file.name,
-      clientId,
-      category,
+      id, name: file.name, clientId, category,
       size: `${(file.size / 1024).toFixed(0)} KB`,
       uploadedAt: new Date().toISOString().slice(0, 10),
       status: "Pending",
       visibility: "Private",
-      blobUrl,
-      mime: file.type,
+      blobUrl, mime: file.type,
+      pages: isImage ? 1 : isPdf ? undefined : 1,
     };
     setFiles((p) => [newFile, ...p]);
     setActivity((p) => [{ id: `a${Date.now()}`, text: `Uploaded ${file.name}`, time: "Just now", type: "upload" }, ...p]);
+    if (isPdf) {
+      pdfPageCount(file).then((pages) => {
+        setFiles((p) => p.map((x) => (x.id === id ? { ...x, pages } : x)));
+      });
+    }
     return newFile;
   }, []);
 
