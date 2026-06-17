@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FileCategory } from "@/lib/types";
-import { pageCountFor, recordIdFor } from "@/components/DemoDocument";
+import { recordIdFor } from "@/lib/recordId";
 
 const cats: ("All" | FileCategory)[] = ["All", "Identity", "Travel", "Agreement", "Medical", "Company Letter", "Other"];
 
@@ -51,19 +51,9 @@ export default function FileVault() {
 
   const downloadFile = (e: React.MouseEvent, f: typeof files[number]) => {
     e.preventDefault(); e.stopPropagation();
-    if (f.blobUrl) {
-      const a = document.createElement("a"); a.href = f.blobUrl; a.download = f.name; a.click();
-      toast.success(`Downloading ${f.name}`);
-    } else {
-      const c = clients.find((c) => c.id === f.clientId);
-      const content = `VisaHOBe PTE. LTD. — Secure Company Preview\n\nFile: ${f.name}\nFile ID: ${f.id.toUpperCase()}\nClient: ${c?.name || "—"}\nReference: ${c?.reference || "—"}\nCategory: ${f.category}\nStatus: ${f.status}\nUploaded: ${f.uploadedAt}\nSize: ${f.size}\n\nDemo placeholder · visahobe.com · confidential`;
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = f.name.replace(/\.[^.]+$/, "") + "-preview.txt"; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast.success("Demo placeholder downloaded");
-    }
+    if (!f.blobUrl) { toast.error("File still preparing…"); return; }
+    const a = document.createElement("a"); a.href = f.blobUrl; a.download = f.name; a.click();
+    toast.success(`Downloading ${f.name}`);
   };
 
   return (
@@ -98,8 +88,7 @@ export default function FileVault() {
         {filtered.map((f) => {
           const c = clients.find((c) => c.id === f.clientId);
           const Icon = iconFor(f.mime);
-          const isDemo = !f.blobUrl;
-          const pages = isDemo ? pageCountFor(f.category) : 1;
+          const pages = f.pages;
           const recId = recordIdFor(f.id);
           return (
             <Link key={f.id} to={`/viewer/${f.id}`} className="card-soft p-4 hover:shadow-card transition-all hover:-translate-y-0.5 block">
@@ -110,7 +99,7 @@ export default function FileVault() {
                   <div className="text-xs text-muted-foreground truncate">{c?.name} · {f.category}</div>
                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                     <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-secondary text-foreground">{recId}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary inline-flex items-center gap-1"><Layers className="h-2.5 w-2.5" /> {pages} {pages === 1 ? "pg" : "pgs"}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary inline-flex items-center gap-1"><Layers className="h-2.5 w-2.5" /> {pages ? `${pages} ${pages === 1 ? "pg" : "pgs"}` : "…"}</span>
                     <span className="text-[10px] text-muted-foreground">{f.size}</span>
                   </div>
                 </div>
