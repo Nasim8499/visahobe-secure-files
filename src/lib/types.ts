@@ -24,10 +24,12 @@ export interface VaultFile {
   uploadedAt: string;
   status: FileStatus;
   visibility: "Private" | "Shared";
-  /** browser blob URL when uploaded locally */
+  /** browser blob URL (always set once available — for demo files it's a generated PDF) */
   blobUrl?: string;
   mime?: string;
   isDemo?: boolean;
+  /** Exact page count once known (PDFs). undefined while loading; 1 for images. */
+  pages?: number;
 }
 
 export interface Activity {

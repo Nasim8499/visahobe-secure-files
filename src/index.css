@@ -103,17 +103,14 @@
   .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
 }
 
-.print-only { display: none; }
-
+/* Printing: handled via a hidden iframe that opens the real PDF blob,
+   so the browser prints at exact A4 with no clipping. Hide app chrome
+   if a stray Ctrl+P is invoked on a non-PDF view. */
 @media print {
   @page { size: A4; margin: 0; }
   html, body { background: white !important; }
-  .no-print, .screen-only { display: none !important; }
-  .print-only { display: block !important; }
-  .print-area { padding: 0 !important; overflow: visible !important; }
-  .print-area > div { transform: none !important; max-width: none !important; width: 100% !important; }
-  .print-page { width: 210mm; height: 297mm; page-break-after: always; break-after: page; }
-  .print-page > div { width: 100% !important; height: 100% !important; border-radius: 0 !important; box-shadow: none !important; aspect-ratio: auto !important; }
+  .no-print { display: none !important; }
 }
+
 
 
