@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useApp } from "@/lib/store";
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, Download, Share2, Printer, ShieldCheck, ChevronLeft, ChevronRight, FileText, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, Download, Share2, Printer, ShieldCheck, ChevronLeft, ChevronRight, FileText, Loader2, MoveHorizontal, Maximize } from "lucide-react";
 import { toast } from "sonner";
 import { Document, Page } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -9,29 +9,63 @@ import "react-pdf/dist/Page/TextLayer.css";
 import "@/lib/pdfWorker";
 import { recordIdFor } from "@/lib/recordId";
 
+type FitMode = "width" | "page" | "custom";
+
 export default function Viewer() {
   const { id = "" } = useParams();
   const { getFile, getClient } = useApp();
   const navigate = useNavigate();
   const f = getFile(id);
   const [zoom, setZoom] = useState(1);
+  const [fit, setFit] = useState<FitMode>("width");
   const [rot, setRot] = useState(0);
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [totalPages, setTotalPages] = useState<number>(f?.pages ?? 0);
-  const [pdfWidth, setPdfWidth] = useState(720);
+  const [box, setBox] = useState({ w: 720, h: 900 });
+  const [ratio, setRatio] = useState(297 / 210); // height / width, A4 default
+  const [printing, setPrinting] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const thumbRefs = useRef<Record<number, HTMLButtonElement | null>>({});
 
+  const file = useMemo(() => (f?.blobUrl ? { url: f.blobUrl } : null), [f?.blobUrl]);
+
+  // Measure the viewing area so fit modes are exact.
   useEffect(() => {
-    const calc = () => {
-      const w = window.innerWidth;
-      // Account for thumbnail sidebar (112px) + details sidebar (320px) + paddings on lg
-      if (w >= 1024) setPdfWidth(Math.min(820, w - 112 - 320 - 80));
-      else if (w >= 768) setPdfWidth(Math.min(820, w - 112 - 60));
-      else setPdfWidth(Math.min(820, w - 32));
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBox({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    setBox({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, [file]);
+
+  // Reset when switching files.
+  useEffect(() => { setPage(1); setPageInput("1"); setTotalPages(f?.pages ?? 0); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep active thumbnail visible.
+  useEffect(() => {
+    thumbRefs.current[page]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [page]);
+
+  const onLoadSuccess = useCallback((pdf: { numPages: number }) => setTotalPages(pdf.numPages), []);
+
+  const goTo = useCallback((p: number) => {
+    const max = totalPages || 1;
+    const clamped = Math.max(1, Math.min(max, p));
+    setPage(clamped); setPageInput(String(clamped));
+  }, [totalPages]);
+
+  // Keyboard nav
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if (e.key === "ArrowRight" || e.key === "PageDown") goTo(page + 1);
+      if (e.key === "ArrowLeft" || e.key === "PageUp") goTo(page - 1);
     };
-    calc(); window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
-  }, []);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [page, goTo]);
 
   if (!f) return <div className="p-8">File not found. <Link to="/files" className="text-primary">Back</Link></div>;
   const c = getClient(f.clientId);
@@ -39,53 +73,78 @@ export default function Viewer() {
   const isPdf = (f.mime === "application/pdf") || (!!f.blobUrl && /\.pdf$/i.test(f.name));
   const recordId = recordIdFor(f.id);
 
-  const file = useMemo(() => (f.blobUrl ? { url: f.blobUrl } : null), [f.blobUrl]);
+  const pad = 48;
+  const sideways = rot % 180 !== 0;
+  const availW = Math.max(200, box.w - pad);
+  const availH = Math.max(200, box.h - pad);
+  const fitWidthW = sideways ? availW / ratio : availW;
+  const fitPageW = sideways ? Math.min(availH, availW / ratio) : Math.min(availW, availH / ratio);
+  const baseW = fit === "page" ? fitPageW : fitWidthW;
+  const renderW = Math.round(fit === "custom" ? fitWidthW * zoom : baseW);
+  const zoomPct = Math.round((renderW / fitWidthW) * 100);
 
-  const onLoadSuccess = useCallback((pdf: { numPages: number }) => {
-    setTotalPages(pdf.numPages);
-  }, []);
-
-  const goTo = (p: number) => {
-    const max = totalPages || 1;
-    const clamped = Math.max(1, Math.min(max, p));
-    setPage(clamped); setPageInput(String(clamped));
+  const zoomBy = (d: number) => {
+    const current = renderW / fitWidthW;
+    setZoom(Math.max(0.3, Math.min(3, +(current + d).toFixed(2))));
+    setFit("custom");
   };
 
   const download = () => {
     if (f.blobUrl) {
       const a = document.createElement("a"); a.href = f.blobUrl; a.download = f.name; a.click();
       toast.success(`Downloading ${f.name}`);
-    } else {
-      toast.error("File not ready yet");
-    }
+    } else toast.error("File not ready yet");
   };
   const share = async () => {
     const link = `https://vault.visahobe.com/share/${f.id}`;
     try { await navigator.clipboard.writeText(link); toast.success("Secure link copied", { description: link }); }
     catch { toast.error("Could not copy link"); }
   };
-  const print = () => {
+
+  const print = async () => {
     if (!f.blobUrl) { toast.error("File not ready yet"); return; }
-    if (isPdf) {
-      // Open the real PDF blob in a hidden iframe so the browser prints at exact A4 with no clipping.
-      const existing = document.getElementById("vh-print-frame") as HTMLIFrameElement | null;
-      existing?.remove();
+    if (!isPdf) { window.print(); return; }
+    if (printing) return;
+    setPrinting(true);
+    try {
+      // Preload the exact blob fully into memory so the print frame never sees a partial file.
+      const res = await fetch(f.blobUrl);
+      const blob = await res.blob();
+      const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+      if (String.fromCharCode(...head) !== "%PDF-") throw new Error("invalid");
+      const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      document.getElementById("vh-print-frame")?.remove();
       const iframe = document.createElement("iframe");
       iframe.id = "vh-print-frame";
-      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
-      iframe.src = f.blobUrl;
-      iframe.onload = () => { try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch { window.open(f.blobUrl, "_blank"); } };
-      document.body.appendChild(iframe);
-      toast("Opening print dialog…");
-    } else {
-      window.print();
+      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;";
+      iframe.src = url;
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error("timeout")), 15000);
+        iframe.onload = () => { clearTimeout(t); setTimeout(resolve, 400); };
+        document.body.appendChild(iframe);
+      });
+      try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); }
+      catch { window.open(url, "_blank"); }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      toast.error("Print failed", { description: "Could not prepare the PDF. Try downloading instead." });
+    } finally {
+      setPrinting(false);
     }
   };
 
   const pagesArr = totalPages > 0 ? Array.from({ length: totalPages }) : [];
+  const btn = "h-9 w-9 rounded-xl bg-white/5 hover:bg-white/15 flex items-center justify-center disabled:opacity-40";
+  const activeBtn = "bg-white/25";
 
   return (
     <div className="fixed inset-0 z-50 bg-viewer text-viewer-foreground flex flex-col">
+      {printing && (
+        <div className="absolute inset-0 z-[60] bg-black/60 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <div className="text-sm">Preparing {totalPages || ""} A4 page{totalPages === 1 ? "" : "s"} for print…</div>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 lg:px-6 py-3 border-b border-white/10 glass-dark gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -100,22 +159,20 @@ export default function Viewer() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {[
-            { i: ZoomOut, a: () => setZoom((z) => Math.max(0.5, z - 0.1)), t: "Zoom out" },
-            { i: ZoomIn, a: () => setZoom((z) => Math.min(2.5, z + 0.1)), t: "Zoom in" },
-            { i: RotateCw, a: () => setRot((r) => r + 90), t: "Rotate" },
-            { i: Download, a: download, t: "Download" },
-            { i: Share2, a: share, t: "Share" },
-            { i: Printer, a: print, t: "Print" },
-          ].map(({ i: Icon, a, t }, k) => (
-            <button key={k} onClick={a} title={t} className="h-9 w-9 rounded-xl bg-white/5 hover:bg-white/15 flex items-center justify-center"><Icon className="h-4 w-4" /></button>
-          ))}
+        <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto">
+          <button onClick={() => zoomBy(-0.1)} title="Zoom out" className={btn}><ZoomOut className="h-4 w-4" /></button>
+          <span className="hidden sm:inline text-xs font-mono w-11 text-center text-white/80">{zoomPct}%</span>
+          <button onClick={() => zoomBy(0.1)} title="Zoom in" className={btn}><ZoomIn className="h-4 w-4" /></button>
+          <button onClick={() => setFit("width")} title="Fit to width" className={`${btn} ${fit === "width" ? activeBtn : ""}`}><MoveHorizontal className="h-4 w-4" /></button>
+          <button onClick={() => setFit("page")} title="Fit to page" className={`${btn} ${fit === "page" ? activeBtn : ""}`}><Maximize className="h-4 w-4" /></button>
+          <button onClick={() => setRot((r) => (r + 90) % 360)} title="Rotate" className={btn}><RotateCw className="h-4 w-4" /></button>
+          <button onClick={download} title="Download" className={btn}><Download className="h-4 w-4" /></button>
+          <button onClick={share} title="Share" className={btn}><Share2 className="h-4 w-4" /></button>
+          <button onClick={print} disabled={printing} title="Print" className={btn}>{printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}</button>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* PDF document wrapper provides both the main page and the thumbnail strip */}
         {isPdf && file ? (
           <Document file={file} onLoadSuccess={onLoadSuccess} loading={<ViewerLoading />} error={<ViewerError onDownload={download} />} className="flex flex-1 min-w-0">
             {totalPages > 1 && (
@@ -124,9 +181,9 @@ export default function Viewer() {
                 {pagesArr.map((_, i) => {
                   const p = i + 1; const active = page === p;
                   return (
-                    <button key={p} onClick={() => goTo(p)}
-                      className={`group relative rounded-lg overflow-hidden border-2 transition bg-white ${active ? "border-[hsl(var(--primary-glow))] shadow-glow" : "border-white/10 hover:border-white/40"}`}>
-                      <Page pageNumber={p} width={88} renderAnnotationLayer={false} renderTextLayer={false} />
+                    <button key={p} ref={(el) => (thumbRefs.current[p] = el)} onClick={() => goTo(p)} aria-current={active ? "page" : undefined}
+                      className={`group relative rounded-lg overflow-hidden border-2 transition bg-white shrink-0 ${active ? "border-[hsl(var(--primary-glow))] shadow-glow ring-2 ring-[hsl(var(--primary-glow))]/40" : "border-white/10 hover:border-white/40"}`}>
+                      <Page pageNumber={p} width={88} renderAnnotationLayer={false} renderTextLayer={false} loading={<div className="h-[124px]" />} />
                       <div className={`absolute bottom-0 inset-x-0 text-center text-[10px] py-0.5 ${active ? "bg-[hsl(var(--primary))] text-white" : "bg-black/60 text-white/80"}`}>{p}</div>
                     </button>
                   );
@@ -134,14 +191,18 @@ export default function Viewer() {
               </aside>
             )}
 
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-auto p-4 lg:p-8 flex items-start justify-center">
-                <div style={{ transform: `rotate(${rot}deg)`, transformOrigin: "center top", transition: "transform 0.2s" }}>
+            <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+              <div ref={containerRef} className="flex-1 overflow-auto p-6 flex items-start justify-center">
+                <div style={{ transform: `rotate(${rot}deg)`, transformOrigin: "center center", transition: "transform 0.2s" }}>
                   <Page
+                    key={page}
                     pageNumber={page}
-                    width={pdfWidth * zoom}
+                    width={sideways ? undefined : renderW}
+                    height={sideways ? renderW : undefined}
+                    onLoadSuccess={(pg: any) => { const vw = pg.originalWidth || pg.width; const vh = pg.originalHeight || pg.height; if (vw && vh) setRatio(vh / vw); }}
                     renderAnnotationLayer={false}
                     renderTextLayer={false}
+                    loading={<ViewerLoading />}
                     className="shadow-elevated rounded-lg overflow-hidden bg-white"
                   />
                 </div>
@@ -167,10 +228,10 @@ export default function Viewer() {
             </div>
           </Document>
         ) : (
-          <div className="flex-1 flex items-start justify-center overflow-auto p-4 lg:p-8">
-            <div style={{ transform: `scale(${zoom}) rotate(${rot}deg)`, transformOrigin: "top center", transition: "transform 0.2s" }} className="w-full max-w-[820px]">
+          <div ref={containerRef} className="flex-1 flex items-start justify-center overflow-auto p-4 lg:p-8">
+            <div style={{ transform: `scale(${fit === "custom" ? zoom : 1}) rotate(${rot}deg)`, transformOrigin: "top center", transition: "transform 0.2s" }} className="w-full max-w-[820px]">
               {isImage && f.blobUrl ? (
-                <img src={f.blobUrl} alt={f.name} className="w-full rounded-2xl shadow-elevated" />
+                <img src={f.blobUrl} alt={f.name} className={`w-full rounded-2xl shadow-elevated ${fit === "page" ? "max-h-[80vh] object-contain" : ""}`} />
               ) : (
                 <ViewerLoading />
               )}
@@ -178,7 +239,6 @@ export default function Viewer() {
           </div>
         )}
 
-        {/* Side details */}
         <aside className="hidden lg:block w-80 border-l border-white/10 p-6 overflow-auto">
           <div className="text-xs uppercase tracking-wider text-white/50 mb-2">Document metadata</div>
           <div className="space-y-3 text-sm">
@@ -203,7 +263,7 @@ export default function Viewer() {
           <div className="mt-6 rounded-2xl p-4 gradient-primary">
             <ShieldCheck className="h-5 w-5 mb-2" />
             <div className="text-sm font-semibold">A4 Print-ready</div>
-            <div className="text-xs text-white/80 mt-1">Print opens the real PDF at exact A4. Encrypted in transit; for internal use only.</div>
+            <div className="text-xs text-white/80 mt-1">Print preloads the real PDF and prints all pages at exact A4. Encrypted in transit; for internal use only.</div>
           </div>
         </aside>
       </div>
