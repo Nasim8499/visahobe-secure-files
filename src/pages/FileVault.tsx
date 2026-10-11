@@ -11,6 +11,9 @@ import { FileCategory } from "@/lib/types";
 import { recordIdFor } from "@/lib/recordId";
 
 const cats: ("All" | FileCategory)[] = ["All", "Identity", "Travel", "Agreement", "Medical", "Company Letter", "Other"];
+const statuses = ["All", "Pending", "Reviewed", "Approved"] as const;
+const PAGE_SIZE = 9;
+const MAX_BYTES = 10 * 1024 * 1024;
 
 export default function FileVault() {
   const { files, clients, addFile } = useApp();
@@ -18,6 +21,8 @@ export default function FileVault() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<typeof cats[number]>("All");
+  const [status, setStatus] = useState<string>("All");
+  const [pg, setPg] = useState(1);
   const [open, setOpen] = useState(false);
   const [selFile, setSelFile] = useState<File | null>(null);
   const [clientId, setClientId] = useState(clients[0]?.id || "");
@@ -32,19 +37,48 @@ export default function FileVault() {
     }
   }, [params, setParams]);
 
+  const ql = q.trim().toLowerCase();
   const filtered = files.filter((f) => {
     const c = clients.find((c) => c.id === f.clientId);
-    const m = `${f.name} ${c?.name || ""}`.toLowerCase().includes(q.toLowerCase());
-    const k = cat === "All" || f.category === cat;
-    return m && k;
+    const hay = `${f.name} ${recordIdFor(f.id)} ${f.category} ${f.status} ${c?.name || ""} ${c?.reference || ""}`.toLowerCase();
+    return (!ql || hay.includes(ql)) && (cat === "All" || f.category === cat) && (status === "All" || f.status === status);
   });
+  const totalPg = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => { setPg(1); }, [q, cat, status]);
+  useEffect(() => { if (pg > totalPg) setPg(totalPg); }, [pg, totalPg]);
+  const pageItems = filtered.slice((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE);
 
-  const submit = () => {
-    if (!selFile || !clientId) { toast.error("Select file and client"); return; }
-    const nf = addFile({ file: selFile, clientId, category });
-    toast.success("File uploaded to vault");
-    setOpen(false); setSelFile(null);
-    navigate(`/viewer/${nf.id}`);
+  const validatePdf = async (file: File): Promise<string | null> => {
+    if (file.size === 0) return "File is empty.";
+    if (file.size > MAX_BYTES) return `File is ${(file.size / 1048576).toFixed(1)} MB — max is 10 MB.`;
+    if (!/\.pdf$/i.test(file.name)) return "Only .pdf files are allowed.";
+    if (file.type && file.type !== "application/pdf") return `Invalid file type (${file.type}). PDF required.`;
+    const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+    if (String.fromCharCode(...head) !== "%PDF-") return "File is not a valid PDF (corrupted or renamed).";
+    return null;
+  };
+
+  const onPick = async (file: File | null) => {
+    if (inputRef.current) inputRef.current.value = "";
+    if (!file) return;
+    const err = await validatePdf(file);
+    if (err) { toast.error("Upload rejected", { description: err }); setSelFile(null); return; }
+    setSelFile(file);
+  };
+
+  const submit = async () => {
+    if (!selFile) { toast.error("Upload failed", { description: "Select a PDF file first." }); return; }
+    if (!clientId) { toast.error("Upload failed", { description: "Select a client." }); return; }
+    const err = await validatePdf(selFile);
+    if (err) { toast.error("Upload rejected", { description: err }); return; }
+    try {
+      const nf = addFile({ file: selFile, clientId, category });
+      toast.success("PDF uploaded to vault");
+      setOpen(false); setSelFile(null);
+      navigate(`/viewer/${nf.id}`);
+    } catch {
+      toast.error("Upload failed", { description: "Something went wrong. Please try again." });
+    }
   };
 
   const iconFor = (mime?: string) => mime?.startsWith("image/") ? ImageIcon : mime === "application/pdf" ? FileType2 : FileText;
